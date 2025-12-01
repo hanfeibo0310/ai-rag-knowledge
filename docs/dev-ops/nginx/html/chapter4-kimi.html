@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI对话</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<div class="container mx-auto max-w-4xl p-4">
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">AI 对话助手</h1>
+
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-4">
+        <div id="chatContainer" class="h-96 overflow-y-auto border-b border-gray-200 pb-4 mb-4">
+            <div id="messages" class="space-y-4"></div>
+        </div>
+
+        <div class="flex gap-2">
+            <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="请输入您的问题..."
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onkeypress="if(event.key === 'Enter') sendMessage()"
+            >
+            <button
+                    onclick="sendMessage()"
+                    id="sendButton"
+                    class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                发送
+            </button>
+        </div>
+
+        <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">选择模型：</label>
+            <select id="modelSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
+                <option value="llama2">llama2</option>
+                <option value="mistral">mistral</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="statusIndicator" class="text-center text-sm text-gray-600 hidden">
+        <span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>
+        正在接收回复...
+    </div>
+</div>
+
+<script>
+    let eventSource = null;
+    let currentMessageDiv = null;
+    let isWaitingForResponse = false;
+
+    function addMessage(content, isUser = false) {
+        const messagesDiv = document.getElementById('messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+        const messageContent = document.createElement('div');
+        messageContent.className = `max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+            isUser
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 text-gray-800'
+        }`;
+
+        messageContent.textContent = content;
+        messageDiv.appendChild(messageContent);
+        messagesDiv.appendChild(messageDiv);
+
+        const chatContainer = document.getElementById('chatContainer');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        return messageContent;
+    }
+
+    function sendMessage() {
+        if (isWaitingForResponse) return;
+
+        const messageInput = document.getElementById('messageInput');
+        const modelSelect = document.getElementById('modelSelect');
+        const message = messageInput.value.trim();
+        const model = modelSelect.value;
+
+        if (!message) return;
+
+        addMessage(message, true);
+        messageInput.value = '';
+
+        isWaitingForResponse = true;
+        document.getElementById('sendButton').disabled = true;
+        messageInput.disabled = true;
+
+        currentMessageDiv = addMessage('');
+
+        document.getElementById('statusIndicator').classList.remove('hidden');
+
+        const apiUrl = `http://localhost:8090/api/v1/ollama/generate_stream?model=${model}&message=${encodeURIComponent(message)}`;
+
+        eventSource = new EventSource(apiUrl);
+
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                const responseData = Array.isArray(data) ? data[0] : data;
+
+                let content = responseData?.result?.output?.content || '';
+
+                // 过滤掉 <think> 标签及其内容
+                content = content.replace(/<think>[\s\S]*?<\/think>/g, '');
+
+                if (content && currentMessageDiv) {
+                    currentMessageDiv.textContent += content;
+
+                    const chatContainer = document.getElementById('chatContainer');
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+
+                const finishReason = responseData?.result?.metadata?.finishReason;
+                if (finishReason === 'STOP' || finishReason === 'stop') {
+                    closeConnection();
+                }
+            } catch (error) {
+                console.error('解析数据错误:', error);
+            }
+        };
+
+        eventSource.onerror = function(error) {
+            console.error('EventSource 错误:', error);
+            closeConnection();
+            if (currentMessageDiv) {
+                currentMessageDiv.textContent += ' [连接中断]';
+            }
+        };
+    }
+
+    function closeConnection() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+
+        isWaitingForResponse = false;
+        document.getElementById('sendButton').disabled = false;
+        document.getElementById('messageInput').disabled = false;
+        document.getElementById('statusIndicator').classList.add('hidden');
+        currentMessageDiv = null;
+    }
+
+    window.addEventListener('beforeunload', function() {
+        if (eventSource) {
+            eventSource.close();
+        }
+    });
+</script>
+</body>
+</html>

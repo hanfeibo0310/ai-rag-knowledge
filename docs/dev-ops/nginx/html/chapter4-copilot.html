@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <title>AI 对话页面</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+<div class="mx-auto max-w-3xl h-screen flex flex-col">
+    <!-- 头部 -->
+    <header class="p-4 bg-white shadow-sm">
+        <h1 class="text-xl font-semibold text-gray-800">AI 对话</h1>
+    </header>
+
+    <!-- 对话区 -->
+    <main class="flex-1 bg-white/60">
+        <div id="chat-box"
+             class="h-[72vh] overflow-y-auto p-4 space-y-4 bg-white border-t border-b border-gray-200">
+            <!-- 动态插入消息 -->
+        </div>
+    </main>
+
+    <!-- 输入区 -->
+    <footer class="p-4 bg-white shadow-inner">
+        <div class="flex items-end gap-2">
+            <input id="user-input"
+                   type="text"
+                   placeholder="请输入消息..."
+                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            <button id="send-btn"
+                    class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                发送
+            </button>
+        </div>
+    </footer>
+</div>
+
+<script>
+    const chatBox = document.getElementById("chat-box");
+    const userInput = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    let eventSource = null;
+
+    // 创建消息气泡
+    function createBubble(role, text = "") {
+      const wrap = document.createElement("div");
+      wrap.className = role === "USER" ? "flex justify-end" : "flex justify-start";
+
+      const bubble = document.createElement("div");
+      // 调整上下间距和行高，避免文字偏移
+      bubble.className = "inline-block max-w-[80%] px-3 py-1.5 rounded-2xl shadow-sm text-[15px] leading-normal whitespace-pre-wrap break-words";
+      bubble.style.wordBreak = "break-word";
+
+      if (role === "USER") {
+        bubble.classList.add("bg-blue-600", "text-white");
+      } else {
+        bubble.classList.add("bg-gray-100", "text-gray-800");
+      }
+
+      bubble.textContent = text || "";
+      wrap.appendChild(bubble);
+      chatBox.appendChild(wrap);
+      return bubble;
+    }
+
+    // 自动滚动到底部
+    function autoScroll() {
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 流式清理器，支持跨分片去除 <think> 标签
+    const streamCleaner = {
+      buffer: "",
+      process(chunk) {
+        if (!chunk) return "";
+        this.buffer += chunk;
+        // 去掉所有 <think>...</think>
+        this.buffer = this.buffer.replace(/<think>[\s\S]*?<\/think>/gi, "");
+        const output = this.buffer;
+        this.buffer = ""; // 每次清理后重置
+        return output.trim();
+      }
+    };
+
+    // 发送消息
+    function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      // 展示用户消息
+      createBubble("USER", message);
+      autoScroll();
+
+      // 关闭旧的流
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+
+      // 每次新回复时重置清理器状态
+      streamCleaner.buffer = "";
+
+      // 构造 API URL
+      const model = "deepseek-r1:1.5b";
+      const apiUrl = `http://localhost:8090/api/v1/ollama/generate_stream?model=${encodeURIComponent(model)}&message=${encodeURIComponent(message)}`;
+
+      // 创建助手气泡
+      const assistantBubble = createBubble("ASSISTANT", "");
+      autoScroll();
+
+      // 流式请求
+      eventSource = new EventSource(apiUrl);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          let content = data?.result?.output?.content || "";
+          const finishReason = data?.result?.metadata?.finishReason || null;
+
+          // 去掉 <think> 标签内容
+          content = streamCleaner.process(content);
+
+          if (content) {
+            assistantBubble.textContent += content;
+            autoScroll();
+          }
+
+          if (finishReason === "STOP") {
+            eventSource.close();
+            eventSource = null;
+          }
+        } catch (e) {
+          console.error("解析错误:", e);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error("连接错误:", err);
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+      };
+
+      userInput.value = "";
+      userInput.focus();
+    }
+
+    // 点击按钮发送
+    sendBtn.addEventListener("click", sendMessage);
+
+    // 回车键发送
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+</script>
+</body>
+</html>
