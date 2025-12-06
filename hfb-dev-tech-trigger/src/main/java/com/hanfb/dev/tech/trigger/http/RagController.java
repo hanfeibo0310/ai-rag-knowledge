@@ -39,6 +39,7 @@ public class RagController implements IRAGService {
     @Resource
     private RedissonClient redissonClient;
 
+    @RequestMapping(value = "query_rag_tag_list", method = RequestMethod.GET)
     @Override
     public Response<List<String>> queryRagTagList() {
         RList<String> elements = redissonClient.getList("ragTag");
