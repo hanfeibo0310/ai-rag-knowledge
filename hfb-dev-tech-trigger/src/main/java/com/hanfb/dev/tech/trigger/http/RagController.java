@@ -23,7 +23,13 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@CrossOrigin("*")
+//@CrossOrigin(
+//        origins = "*",                // 允许所有域名（开发环境）
+//        methods = {RequestMethod.POST}, // 明确允许POST方法（上传接口仅用POST）
+//        allowedHeaders = {"Content-Type"}, // 允许multipart/form-data请求头
+//        allowCredentials = "true",     // 允许携带凭证（关键缺失项）
+//        maxAge = 3600                // 预检请求缓存1小时，减少OPTIONS请求
+//)
 @RequestMapping("/api/v1/rag/")
 public class RagController implements IRAGService {
 
