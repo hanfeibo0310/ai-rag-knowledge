@@ -9,6 +9,12 @@ spring:
         options:
           num-batch: 512
         model: nomic-embed-text
+    openai:
+      base-url: https://api.openai.com/
+      api-key: sk-1234ijkl5678mnop1234ijkl5678mnop1234ijkl
+      embedding-model: text-embedding-ada-002
+      rag:
+        embed: nomic-embed-text #nomic-embed-text、text-embedding-ada-002
   datasource:
     driver-class-name: org.postgresql.Driver
     username: postgres

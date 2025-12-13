@@ -13,6 +13,17 @@ services:
     restart: unless-stopped
     ports:
       - "11434:11434"
+    networks:
+      - my-network
+    deploy:
+      resources:
+        limits: # 硬限制（容器最多使用的资源）
+          cpus: '1.5'        # 限制最多使用1.5核CPU（2核留0.5核给系统）
+          memory: 2.5g         # 限制最多使用3GB内存（4G留1G给系统）
+        reservations: # 软预留（容器启动时至少分配的资源，可选）
+          cpus: '1'          # 至少预留1核CPU
+          memory: 2g         # 至少预留2GB内存
+
   redis:
     image: registry.cn-hangzhou.aliyuncs.com/xfg-studio/redis:6.2
     container_name: redis
