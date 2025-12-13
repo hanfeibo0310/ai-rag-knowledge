@@ -8,6 +8,8 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.redisson.api.RList;
+import org.redisson.api.RedissonClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.ollama.OllamaChatClient;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
@@ -38,6 +40,9 @@ public class JGitTest {
     @Resource
     private PgVectorStore pgVectorStore;
 
+    @Resource
+    private RedissonClient redissonClient;
+
     @Test
     public void test_download() throws IOException, GitAPIException {
         // 这部分替换为你的
@@ -64,22 +69,36 @@ public class JGitTest {
     public void test_file() throws IOException {
         Files.walkFileTree(Paths.get("./cloned-repo"), new SimpleFileVisitor<>() {
             @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
 
                 log.info("文件路径:{}", file.toString());
 
-                PathResource resource = new PathResource(file);
-                TikaDocumentReader reader = new TikaDocumentReader(resource);
+                try {
+                    PathResource resource = new PathResource(file);
+                    TikaDocumentReader reader = new TikaDocumentReader(resource);
 
-                List<Document> documents = reader.get();
-                List<Document> documentSplitterList = tokenTextSplitter.apply(documents);
+                    List<Document> documents = reader.get();
+                    if(documents.isEmpty()) {
+                        return FileVisitResult.CONTINUE;
+                    }
 
-                documents.forEach(doc -> doc.getMetadata().put("knowledge", "hanfb-lottery"));
-                documentSplitterList.forEach(doc -> doc.getMetadata().put("knowledge", "hanfb-lottery"));
+                    List<Document> documentSplitterList = tokenTextSplitter.apply(documents);
 
-                pgVectorStore.accept(documentSplitterList);
+                    documents.forEach(doc -> doc.getMetadata().put("knowledge", "hanfb-lottery"));
+                    documentSplitterList.forEach(doc -> doc.getMetadata().put("knowledge", "hanfb-lottery"));
 
-                return FileVisitResult.CONTINUE;
+                    pgVectorStore.accept(documentSplitterList);
+
+                    RList<String> elements = redissonClient.getList("ragTag");
+                    if (!elements.contains("hanfb-lottery")) {
+                        elements.add("hanfb-lottery");
+                    }
+
+                    return FileVisitResult.CONTINUE;
+                } catch (Exception e) {
+                    log.info("error 文件路径:{}", file.toString());
+                    return FileVisitResult.CONTINUE;
+                }
             }
         });
     }

@@ -106,7 +106,7 @@ public class RagController implements IRAGService {
 
         Files.walkFileTree(Paths.get(localPath), new SimpleFileVisitor<>() {
             @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 log.info("{} 遍历解析路径，上传知识库:{}", repoProjectName, file.getFileName());
                 try {
                     TikaDocumentReader reader = new TikaDocumentReader(new PathResource(file));
