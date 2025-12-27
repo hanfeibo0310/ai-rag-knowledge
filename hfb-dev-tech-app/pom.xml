@@ -86,7 +86,7 @@
     </dependencies>
 
     <build>
-        <finalName>xfg-dev-tech-app</finalName>
+        <finalName>ai-rag-knowledge-app</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -122,7 +122,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>cn.bugstack.xfg.dev.tech.Application</mainClass>
+                    <mainClass>com.hanfb.Main</mainClass>
                     <layout>JAR</layout>
                 </configuration>
             </plugin>
