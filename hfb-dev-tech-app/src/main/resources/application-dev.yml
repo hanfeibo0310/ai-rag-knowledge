@@ -10,8 +10,8 @@ spring:
           num-batch: 512
         model: nomic-embed-text
     openai:
-      base-url: https://api.openai.com/
-      api-key: sk-1234ijkl5678mnop1234ijkl5678mnop1234ijkl
+      base-url: https://apis.itedus.cn/
+      api-key: sk-sgpjzHccO4BwByHC8b58292080A54cF192E56dD004650aFd
       embedding-model: text-embedding-ada-002
       rag:
         embed: nomic-embed-text #nomic-embed-text、text-embedding-ada-002
